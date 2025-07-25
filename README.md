@@ -12,8 +12,8 @@ React-based frontend for the Crosslake Practitioner Matching System. Provides an
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Solaris-Partners/App-frontend.git
-   cd App-frontend
+   git clone https://github.com/Solaris-Partners/Crosslake-Credentials-App-frontend.git
+   cd Crosslake-Credentials-App-frontend
    ```
 
 2. **Set up environment**
@@ -42,7 +42,7 @@ React-based frontend for the Crosslake Practitioner Matching System. Provides an
 ## 📁 Project Structure
 
 ```
-App-frontend/
+Crosslake-Credentials-App-frontend/
 ├── src/
 │   ├── components/     # Reusable UI components
 │   ├── pages/         # Page components (InputScreen, ResultsScreen)
@@ -129,7 +129,7 @@ npm run test
 
 ## 🔗 Related Repositories
 
-- Backend: [App-backend](https://github.com/Solaris-Partners/App-backend)
+- Backend: [Crosslake-Credentials-App-backend](https://github.com/Solaris-Partners/Crosslake-Credentials-App-backend)
 - Original monorepo: [Crosslake-Credentials](https://github.com/Solaris-Partners/Crosslake-Credentials) (deprecated)
 
 ## 🎯 API Endpoints Used
