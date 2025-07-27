@@ -1,4 +1,4 @@
-name: Deploy Frontend to Staging (SSH)
+name: Deploy Frontend to Staging
 
 on:
   push:
