@@ -137,4 +137,4 @@ npm run test
 - `POST /api/v1/match` - Search for practitioners
 - `GET /api/v1/practitioners/{id}` - Get practitioner details  
 - `GET /api/v1/skills` - Get all available skills
-- `GET /api/v1/health` - Check backend health
+- `GET /api/v1/health` - Check backend health# Frontend CI/CD Test - Sun Jul 27 15:01:29 CDT 2025

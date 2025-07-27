@@ -58,21 +58,27 @@ const headCells: readonly HeadCell[] = [
 ];
 
 function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
-  if (b[orderBy] < a[orderBy]) {
+  const aValue = a[orderBy];
+  const bValue = b[orderBy];
+  
+  if (aValue === undefined || aValue === null) return 1;
+  if (bValue === undefined || bValue === null) return -1;
+  
+  if (bValue < aValue) {
     return -1;
   }
-  if (b[orderBy] > a[orderBy]) {
+  if (bValue > aValue) {
     return 1;
   }
   return 0;
 }
 
-function getComparator<Key extends keyof any>(
+function getComparator(
   order: Order,
-  orderBy: Key,
+  orderBy: keyof PractitionerListItem,
 ): (
-  a: { [key in Key]: number | string | boolean | undefined },
-  b: { [key in Key]: number | string | boolean | undefined },
+  a: PractitionerListItem,
+  b: PractitionerListItem,
 ) => number {
   return order === 'desc'
     ? (a, b) => descendingComparator(a, b, orderBy)
