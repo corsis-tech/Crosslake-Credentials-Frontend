@@ -1,4 +1,4 @@
-name: Deploy Frontend to Staging
+name: Deploy Frontend to Staging (SSH)
 
 on:
   push:
@@ -44,20 +44,22 @@ jobs:
           --output text)
         
         if [ "$INSTANCE_ID" = "None" ] || [ -z "$INSTANCE_ID" ]; then
-          echo "❌ No running EC2 instance found with tag Name=staging-crosslake-backend-instance"
-          exit 1
+          # Fallback to known IP if instance tag not found
+          echo "⚠️ No instance found by tag, using known IP"
+          INSTANCE_IP="44.229.59.190"
+          INSTANCE_ID="i-0d707619665a18737"
+        else
+          INSTANCE_IP=$(aws ec2 describe-instances \
+            --instance-ids $INSTANCE_ID \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
         fi
-        
-        INSTANCE_IP=$(aws ec2 describe-instances \
-          --instance-ids $INSTANCE_ID \
-          --query 'Reservations[0].Instances[0].PublicIpAddress' \
-          --output text)
         
         echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
         echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
         echo "api_url=http://$INSTANCE_IP" >> $GITHUB_OUTPUT
         
-        echo "✅ Found instance: $INSTANCE_ID with IP: $INSTANCE_IP"
+        echo "✅ Using instance: $INSTANCE_ID with IP: $INSTANCE_IP"
     
     - name: Install Dependencies
       run: |
@@ -97,99 +99,65 @@ jobs:
         tar -czf frontend-dist.tar.gz -C dist .
         echo "Package size: $(du -h frontend-dist.tar.gz | cut -f1)"
     
-    - name: Upload to S3
-      id: upload
+    - name: Setup SSH Key
       run: |
-        TIMESTAMP=$(date +%Y%m%d%H%M%S)
-        S3_KEY="frontend-deployments/staging/frontend-${TIMESTAMP}-${GITHUB_SHA:0:7}.tar.gz"
+        echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > /tmp/deploy-key.pem
+        chmod 600 /tmp/deploy-key.pem
         
-        echo "📤 Uploading to S3..."
-        aws s3 cp frontend-dist.tar.gz s3://crosslake-backend-pii-data-staging/$S3_KEY
-        
-        echo "s3_key=$S3_KEY" >> $GITHUB_OUTPUT
-        echo "✅ Uploaded to s3://crosslake-backend-pii-data-staging/$S3_KEY"
+        # Disable strict host key checking for deployment
+        mkdir -p ~/.ssh
+        echo "Host ${{ steps.get-instance.outputs.instance_ip }}" >> ~/.ssh/config
+        echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+        echo "  UserKnownHostsFile /dev/null" >> ~/.ssh/config
     
     - name: Deploy to EC2
       run: |
-        echo "🚀 Deploying to EC2..."
+        echo "🚀 Deploying to EC2 via SSH..."
         
-        COMMAND_ID=$(aws ssm send-command \
-          --instance-ids ${{ steps.get-instance.outputs.instance_id }} \
-          --document-name "AWS-RunShellScript" \
-          --parameters 'commands=[
-            "#!/bin/bash",
-            "set -e",
-            
-            "echo \"=== Starting Frontend Deployment ===\"",
-            "echo \"Deployment Time: $(date)\"",
-            "echo \"S3 Key: ${{ steps.upload.outputs.s3_key }}\"",
-            
-            "# Download from S3",
-            "cd /tmp",
-            "rm -f frontend-dist.tar.gz",
-            "aws s3 cp s3://crosslake-backend-pii-data-staging/${{ steps.upload.outputs.s3_key }} frontend-dist.tar.gz",
-            
-            "# Backup current deployment",
-            "if [ -d /var/www/crosslake-frontend ]; then",
-            "  sudo tar -czf /tmp/frontend-backup-$(date +%Y%m%d%H%M%S).tar.gz -C /var/www/crosslake-frontend .",
-            "fi",
-            
-            "# Deploy new version",
-            "sudo mkdir -p /var/www/crosslake-frontend",
-            "sudo rm -rf /var/www/crosslake-frontend/*",
-            "sudo tar -xzf frontend-dist.tar.gz -C /var/www/crosslake-frontend/",
-            "sudo chown -R nginx:nginx /var/www/crosslake-frontend",
-            
-            "# Verify deployment",
-            "if [ -f /var/www/crosslake-frontend/index.html ]; then",
-            "  echo \"✅ Frontend files deployed successfully\"",
-            "else",
-            "  echo \"❌ Frontend deployment failed - index.html not found\"",
-            "  exit 1",
-            "fi",
-            
-            "# Clean up",
-            "rm -f frontend-dist.tar.gz",
-            
-            "# Restart nginx to ensure clean state",
-            "sudo nginx -t && sudo systemctl reload nginx",
-            
-            "echo \"=== Frontend Deployment Complete ===\"",
-            "echo \"URL: http://${{ steps.get-instance.outputs.instance_ip }}\"",
-            
-            "# Final check",
-            "sleep 2",
-            "curl -s -o /dev/null -w \"HTTP Status: %{http_code}\\n\" http://localhost || true"
-          ]' \
-          --query 'Command.CommandId' \
-          --output text)
+        # Copy deployment package to EC2
+        scp -i /tmp/deploy-key.pem frontend-dist.tar.gz ec2-user@${{ steps.get-instance.outputs.instance_ip }}:/tmp/
         
-        echo "SSM Command ID: $COMMAND_ID"
+        # Deploy via SSH
+        ssh -i /tmp/deploy-key.pem ec2-user@${{ steps.get-instance.outputs.instance_ip }} << 'ENDSSH'
+          set -e
+          
+          echo "=== Starting Frontend Deployment ==="
+          echo "Deployment Time: $(date)"
+          
+          # Backup current deployment
+          if [ -d /var/www/crosslake-frontend ]; then
+            sudo tar -czf /tmp/frontend-backup-$(date +%Y%m%d%H%M%S).tar.gz -C /var/www/crosslake-frontend .
+          fi
+          
+          # Deploy new version
+          sudo mkdir -p /var/www/crosslake-frontend
+          sudo rm -rf /var/www/crosslake-frontend/*
+          sudo tar -xzf /tmp/frontend-dist.tar.gz -C /var/www/crosslake-frontend/
+          sudo chown -R nginx:nginx /var/www/crosslake-frontend
+          
+          # Verify deployment
+          if [ -f /var/www/crosslake-frontend/index.html ]; then
+            echo "✅ Frontend files deployed successfully"
+          else
+            echo "❌ Frontend deployment failed - index.html not found"
+            exit 1
+          fi
+          
+          # Clean up
+          rm -f /tmp/frontend-dist.tar.gz
+          
+          # Restart nginx to ensure clean state
+          sudo nginx -t && sudo systemctl reload nginx
+          
+          echo "=== Frontend Deployment Complete ==="
+          
+          # Final check
+          sleep 2
+          curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost || true
+ENDSSH
         
-        # Wait for deployment
-        echo "⏳ Waiting for deployment to complete..."
-        aws ssm wait command-executed \
-          --command-id $COMMAND_ID \
-          --instance-id ${{ steps.get-instance.outputs.instance_id }} || true
-        
-        # Get deployment results
-        COMMAND_STATUS=$(aws ssm get-command-invocation \
-          --command-id $COMMAND_ID \
-          --instance-id ${{ steps.get-instance.outputs.instance_id }} \
-          --query 'Status' \
-          --output text)
-        
-        echo "Deployment Status: $COMMAND_STATUS"
-        
-        if [ "$COMMAND_STATUS" != "Success" ]; then
-          echo "❌ Deployment failed!"
-          aws ssm get-command-invocation \
-            --command-id $COMMAND_ID \
-            --instance-id ${{ steps.get-instance.outputs.instance_id }} \
-            --query 'StandardErrorContent' \
-            --output text
-          exit 1
-        fi
+        # Clean up SSH key
+        rm -f /tmp/deploy-key.pem
     
     - name: Verify Deployment
       run: |
@@ -226,25 +194,6 @@ jobs:
         else
           echo "⚠️  Backend API returned HTTP $API_STATUS"
         fi
-    
-    - name: Clean up S3
-      if: always()
-      run: |
-        # Keep last 5 deployments, delete older ones
-        echo "🧹 Cleaning up old deployments..."
-        
-        aws s3api list-objects-v2 \
-          --bucket crosslake-backend-pii-data-staging \
-          --prefix frontend-deployments/staging/ \
-          --query 'reverse(sort_by(Contents, &LastModified))[5:].Key' \
-          --output text | \
-        tr '\t' '\n' | \
-        while read key; do
-          if [ ! -z "$key" ]; then
-            echo "Deleting old deployment: $key"
-            aws s3 rm s3://crosslake-backend-pii-data-staging/$key
-          fi
-        done || true
     
     - name: Post Deployment Summary
       if: always()
