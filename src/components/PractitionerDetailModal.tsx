@@ -29,9 +29,6 @@ import {
   WorkOutline,
   Business,
   CheckCircle,
-  Description,
-  Print as PrintIcon,
-  Share as ShareIcon,
   Person as PersonIcon,
   Timeline as TimelineIcon,
   Assignment as ProjectIcon,
@@ -232,7 +229,6 @@ export default function PractitionerDetailModal({
   query,
 }: PractitionerDetailModalProps) {
   const [pitchModalOpen, setPitchModalOpen] = useState(false);
-  const [isGeneratingPitch, setIsGeneratingPitch] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [detailedData, setDetailedData] = useState<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [loading, setLoading] = useState(false);
@@ -289,49 +285,6 @@ export default function PractitionerDetailModal({
     }
   };
 
-  const handlePrint = () => {
-    // Add print-specific styles
-    const style = document.createElement('style');
-    style.textContent = `
-      @media print {
-        body * { visibility: hidden; }
-        #practitioner-print-content, #practitioner-print-content * { visibility: visible; }
-        #practitioner-print-content { position: absolute; left: 0; top: 0; width: 100%; }
-        .no-print { display: none !important; }
-        .MuiTab-root { display: none !important; }
-        .MuiTabs-root { display: none !important; }
-        [role="tabpanel"] { display: block !important; }
-        .MuiDialogActions-root { display: none !important; }
-      }
-    `;
-    document.head.appendChild(style);
-    
-    // Show all tab panels for print
-    setTabValue(-1);
-    
-    setTimeout(() => {
-      window.print();
-      document.head.removeChild(style);
-      setTabValue(0); // Reset to first tab
-    }, 100);
-  };
-
-  const handleShare = async () => {
-    if (navigator.share && practitioner) {
-      try {
-        await navigator.share({
-          title: `${practitioner.name} - Professional Profile`,
-          text: `Check out ${practitioner.name}'s professional profile: ${practitioner.headline}`,
-          url: window.location.href,
-        });
-      } catch (err) {
-        console.log('Error sharing:', err);
-      }
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(window.location.href);
-    }
-  };
 
   if (!practitioner) return null;
   
@@ -346,14 +299,6 @@ export default function PractitionerDetailModal({
     explanation_status: displayData.explanation_status ?? practitioner.explanation_status ?? 'pending'
   };
 
-  const handleGeneratePitch = () => {
-    setIsGeneratingPitch(true);
-    // Simulate loading delay
-    setTimeout(() => {
-      setIsGeneratingPitch(false);
-      setPitchModalOpen(true);
-    }, 300);
-  };
   
   // Calculate composite score - use actual match_score if available, otherwise parse from explanation
   const { linkedinScore, crosslakeScore } = parseScoresFromExplanation(safeDisplayData.explanation);
@@ -476,46 +421,6 @@ export default function PractitionerDetailModal({
         <Divider sx={{ mt: 2, mb: 0 }} />
         
         <DialogContent sx={{ pt: 0, pb: 2, px: 0, display: 'flex', flexDirection: 'column' }} id="practitioner-print-content">
-          {/* Action Buttons */}
-          <Box sx={{ px: 3, pb: 2, display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }} className="no-print">
-            <Button
-              size="small"
-              startIcon={<InfoIcon />}
-              onClick={() => window.open(`/practitioner/${practitioner.practitioner_id}/all-data`, '_blank')}
-              sx={{ minWidth: 'auto' }}
-              aria-label="View all practitioner data"
-            >
-              {isSmallScreen ? '' : 'View All Data'}
-            </Button>
-            <Button
-              size="small"
-              startIcon={<ShareIcon />}
-              onClick={handleShare}
-              sx={{ minWidth: 'auto' }}
-              aria-label="Share practitioner profile"
-            >
-              {isSmallScreen ? '' : 'Share'}
-            </Button>
-            <Button
-              size="small"
-              startIcon={<PrintIcon />}
-              onClick={handlePrint}
-              sx={{ minWidth: 'auto' }}
-              aria-label="Print practitioner profile"
-            >
-              {isSmallScreen ? '' : 'Print'}
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={isGeneratingPitch ? <CircularProgress size={16} /> : <Description />}
-              onClick={handleGeneratePitch}
-              disabled={isGeneratingPitch}
-              aria-label={isGeneratingPitch ? 'Generating pitch resume' : 'Generate pitch resume'}
-            >
-              {isGeneratingPitch ? 'Generating...' : (isSmallScreen ? 'Pitch' : 'Generate Pitch')}
-            </Button>
-          </Box>
 
           {/* Error Alert */}
           {error && (

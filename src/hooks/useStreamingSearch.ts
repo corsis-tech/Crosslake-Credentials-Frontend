@@ -153,13 +153,25 @@ export const useStreamingSearch = (): UseStreamingSearchReturn => {
 
         onError: (error) => {
           console.error('Stream error:', error);
+          // Extract error message from various possible formats
+          let errorMessage = 'An error occurred';
+          if (typeof error === 'string') {
+            errorMessage = error;
+          } else if (error?.message) {
+            errorMessage = error.message;
+          } else if (error?.detail) {
+            errorMessage = error.detail;
+          } else if (error?.error) {
+            errorMessage = error.error;
+          }
+          
           setState(prev => ({
             ...prev,
             isSearching: false,
             isGeneratingExplanations: false,
-            error: error.message,
+            error: errorMessage,
             currentStage: 'error',
-            currentStatus: `Error: ${error.message}`,
+            currentStatus: `Error: ${errorMessage}`,
             isStreamActive: false
           }));
         },
@@ -180,13 +192,25 @@ export const useStreamingSearch = (): UseStreamingSearchReturn => {
 
     } catch (error: any) {
       console.error('Search error:', error);
+      // Extract error message from various possible formats
+      let errorMessage = 'Failed to search';
+      if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.detail) {
+        errorMessage = error.detail;
+      } else if (error?.error) {
+        errorMessage = error.error;
+      }
+      
       setState(prev => ({
         ...prev,
         isSearching: false,
         isGeneratingExplanations: false,
-        error: error.message || 'Failed to search',
+        error: errorMessage,
         currentStage: 'error',
-        currentStatus: `Error: ${error.message || 'Search failed'}`,
+        currentStatus: `Error: ${errorMessage}`,
         isStreamActive: false
       }));
     }
