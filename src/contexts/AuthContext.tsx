@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import type { ReactNode } from 'react';
 import axios from 'axios';
 import { api } from '../utils/api';
 import { isTokenExpired, getUserFromToken, setupTokenRefreshTimer } from '../utils/tokenUtils';
@@ -34,7 +35,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clear refresh timer
   const clearRefreshTimer = () => {

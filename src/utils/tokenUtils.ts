@@ -82,7 +82,7 @@ export const getUserFromToken = (token: string): { username: string } | null => 
 export const setupTokenRefreshTimer = (
   token: string,
   refreshCallback: () => Promise<void>
-): NodeJS.Timeout | null => {
+): ReturnType<typeof setTimeout> | null => {
   const timeUntilExpiration = getTokenExpirationTime(token);
   
   if (timeUntilExpiration <= 0) {

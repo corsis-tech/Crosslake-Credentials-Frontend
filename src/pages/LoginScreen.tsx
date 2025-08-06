@@ -172,7 +172,7 @@ const LoginScreen: React.FC = () => {
             </Button>
 
             {/* Default credentials hint for development */}
-            {process.env.NODE_ENV === 'development' && (
+            {import.meta.env.DEV && (
               <Typography variant="caption" color="text.secondary" align="center" sx={{ mt: 2, display: 'block' }}>
                 Dev credentials: admin / Crosslake348!
               </Typography>
