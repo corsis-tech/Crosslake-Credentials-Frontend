@@ -20,7 +20,6 @@ interface AuthContextType {
   isLoading: boolean;
   isSSOEnabled: boolean;
   ssoConfig: any;
-  login: (username: string, password: string) => Promise<void>;
   loginSSO: (usePopup?: boolean) => Promise<void>;
   logout: () => void;
   refreshToken: () => Promise<void>;
@@ -63,9 +62,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const config = await getSSOConfig();
         setSSOConfig(config);
-        setIsSSOEnabled(config.enabled && config.configured);
+        setIsSSOEnabled(true);  // SSO is always enabled
       } catch (error) {
         console.error('Failed to fetch SSO config:', error);
+        // SSO is required, so if config fetch fails, we should show an error
+        setSSOConfig({ configured: false });
       }
     };
     
@@ -169,42 +170,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, []);
 
-  const login = async (username: string, password: string) => {
-    try {
-      // Create form data for OAuth2 password flow
-      const formData = new URLSearchParams();
-      formData.append('username', username);
-      formData.append('password', password);
-      
-      const response = await api.post('/api/v1/auth/login', formData, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      });
-
-      const { access_token, refresh_token } = response.data;
-
-      // Store tokens
-      localStorage.setItem('access_token', access_token);
-      localStorage.setItem('refresh_token', refresh_token);
-
-      // Set authorization header
-      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-
-      // Get user info from token
-      const userInfo = getUserFromToken(access_token);
-      if (userInfo) {
-        setUser(userInfo);
-        
-        // Clear any existing timer and set up new auto-refresh timer
-        clearRefreshTimer();
-        refreshTimerRef.current = setupTokenRefreshTimer(access_token, refreshTokenHandler);
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  };
+  // Local login removed - SSO only
 
   const logout = async () => {
     // Clear refresh timer
@@ -347,9 +313,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     isAuthenticated: !!user,
     isLoading,
-    isSSOEnabled,
+    isSSOEnabled: true,  // SSO is always enabled
     ssoConfig,
-    login,
     loginSSO,
     logout,
     refreshToken,

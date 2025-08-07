@@ -29,32 +29,19 @@ export interface SSOExchangeRequest {
 }
 
 export interface SSOConfig {
-  enabled: boolean;
+  enabled: boolean;  // Always true - SSO is mandatory
   configured: boolean;
   provider: string;
-  allow_local_auth: boolean;
-  auto_redirect: boolean;
+  allow_local_auth: boolean;  // Always false - SSO only
+  auto_redirect: boolean;  // Always true - auto-redirect to SSO
   login_endpoint?: string;
   callback_endpoint?: string;
 }
 
 class AuthAPI {
   /**
-   * Standard username/password login
+   * Local login removed - SSO only authentication
    */
-  async login(username: string, password: string): Promise<LoginResponse> {
-    const formData = new URLSearchParams();
-    formData.append('username', username);
-    formData.append('password', password);
-    
-    const response = await api.post<LoginResponse>('/api/v1/auth/login', formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    });
-    
-    return response.data;
-  }
 
   /**
    * Exchange Azure AD tokens for backend JWT

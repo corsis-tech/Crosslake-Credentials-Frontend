@@ -13,7 +13,7 @@ import { useAuth } from '../contexts/AuthContext';
 const SSOCallback: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth(); // We'll need to update this to handle SSO
+  const { handleSSOCallback } = useAuth(); // Use SSO-specific handler
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
 
@@ -29,25 +29,12 @@ const SSOCallback: React.FC = () => {
           // Successfully authenticated with Azure AD
           console.log('SSO authentication successful:', response);
           
-          // Exchange Azure AD token for backend JWT
-          const exchangeResponse = await api.post('/api/v1/auth/sso/exchange', {
-            azure_token: response.idToken,
-            access_token: response.accessToken,
-            account: {
-              username: response.account?.username || response.account?.localAccountId,
-              email: response.account?.username, // Usually email in Azure AD
-              name: response.account?.name,
-            }
-          });
-
-          const { access_token, refresh_token } = exchangeResponse.data;
-
-          // Store tokens
-          localStorage.setItem('access_token', access_token);
-          localStorage.setItem('refresh_token', refresh_token);
-          
-          // Set authorization header
-          api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+          // Use the auth context's SSO handler to exchange tokens
+          await handleSSOCallback(
+            response.idToken,
+            response.accessToken,
+            response.account
+          );
 
           // Get return URL from state or default to home
           const returnUrl = response.state ? 
