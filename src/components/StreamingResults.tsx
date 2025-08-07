@@ -395,6 +395,11 @@ export const StreamingResults: React.FC = () => {
               match_score: selectedPractitioner.match_score,
               explanation: selectedPractitioner.explanation || 'Analysis pending...',
               explanation_status: selectedPractitioner.explanation_status,
+              // Scoring metadata for transparency
+              matched_keywords: selectedPractitioner.matched_keywords,
+              keyword_score: selectedPractitioner.keyword_score,
+              vector_score: selectedPractitioner.vector_score,
+              boost_factor: selectedPractitioner.boost_factor,
               // Basic fields that are available from streaming
               linkedin_about: selectedPractitioner.about,
               ai_summary: selectedPractitioner.about

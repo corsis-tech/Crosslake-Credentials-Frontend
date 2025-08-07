@@ -3,9 +3,14 @@ import type { ReactNode } from 'react';
 import axios from 'axios';
 import { api } from '../utils/api';
 import { isTokenExpired, getUserFromToken, setupTokenRefreshTimer } from '../utils/tokenUtils';
+import { getMsalInstance, isSSOConfigured, getSSOConfig } from '../config/msalConfig';
+import type { AccountInfo } from '@azure/msal-browser';
 
 interface User {
   username: string;
+  email?: string;
+  name?: string;
+  provider?: 'local' | 'sso';
   // Add other user properties as needed
 }
 
@@ -13,9 +18,13 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isSSOEnabled: boolean;
+  ssoConfig: any;
   login: (username: string, password: string) => Promise<void>;
+  loginSSO: (usePopup?: boolean) => Promise<void>;
   logout: () => void;
   refreshToken: () => Promise<void>;
+  handleSSOCallback: (idToken: string, accessToken: string, account: AccountInfo) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,7 +44,10 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSSOEnabled, setIsSSOEnabled] = useState(false);
+  const [ssoConfig, setSSOConfig] = useState<any>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const msalInstance = useRef(getMsalInstance());
 
   // Clear refresh timer
   const clearRefreshTimer = () => {
@@ -44,6 +56,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       refreshTimerRef.current = null;
     }
   };
+
+  // Check SSO configuration on mount
+  useEffect(() => {
+    const checkSSOConfig = async () => {
+      try {
+        const config = await getSSOConfig();
+        setSSOConfig(config);
+        setIsSSOEnabled(config.enabled && config.configured);
+      } catch (error) {
+        console.error('Failed to fetch SSO config:', error);
+      }
+    };
+    
+    checkSSOConfig();
+  }, []);
 
   // Load tokens from localStorage on mount
   useEffect(() => {
@@ -179,7 +206,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     // Clear refresh timer
     clearRefreshTimer();
     
@@ -187,6 +214,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     delete api.defaults.headers.common['Authorization'];
+    
+    // If user was authenticated via SSO, logout from MSAL as well
+    if (user?.provider === 'sso') {
+      try {
+        const accounts = msalInstance.current.getAllAccounts();
+        if (accounts.length > 0) {
+          await msalInstance.current.logoutRedirect({
+            account: accounts[0],
+            postLogoutRedirectUri: window.location.origin,
+          });
+        }
+      } catch (error) {
+        console.error('MSAL logout error:', error);
+      }
+    }
+    
     setUser(null);
   };
 
@@ -228,15 +271,89 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const loginSSO = async (usePopup = false) => {
+    try {
+      const loginRequest = {
+        scopes: ['openid', 'profile', 'email', 'User.Read'],
+        prompt: 'select_account',
+      };
+
+      if (usePopup) {
+        const response = await msalInstance.current.loginPopup(loginRequest);
+        if (response.account && response.idToken) {
+          await handleSSOCallback(response.idToken, response.accessToken, response.account);
+        }
+      } else {
+        // Store the current location to return to after login
+        const returnUrl = window.location.pathname + window.location.search;
+        const state = JSON.stringify({ returnUrl });
+        await msalInstance.current.loginRedirect({ ...loginRequest, state });
+      }
+    } catch (error) {
+      console.error('SSO login error:', error);
+      throw error;
+    }
+  };
+
+  const handleSSOCallback = async (
+    idToken: string,
+    azureAccessToken: string,
+    account: AccountInfo
+  ) => {
+    try {
+      // Exchange Azure AD tokens for backend JWT
+      const response = await api.post('/api/v1/auth/sso/exchange', {
+        azure_id_token: idToken,
+        azure_access_token: azureAccessToken,
+        account: {
+          username: account.username || account.localAccountId,
+          email: account.username, // Usually email in Azure AD
+          name: account.name,
+        },
+      });
+
+      const { access_token, refresh_token } = response.data;
+
+      // Store tokens
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', refresh_token);
+
+      // Set authorization header
+      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+
+      // Get user info from token and mark as SSO user
+      const userInfo = getUserFromToken(access_token);
+      if (userInfo) {
+        setUser({
+          ...userInfo,
+          email: account.username,
+          name: account.name,
+          provider: 'sso',
+        });
+        
+        // Set up auto-refresh timer
+        clearRefreshTimer();
+        refreshTimerRef.current = setupTokenRefreshTimer(access_token, refreshTokenHandler);
+      }
+    } catch (error) {
+      console.error('SSO token exchange error:', error);
+      throw error;
+    }
+  };
+
   const refreshToken = refreshTokenHandler;
 
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
     isLoading,
+    isSSOEnabled,
+    ssoConfig,
     login,
+    loginSSO,
     logout,
     refreshToken,
+    handleSSOCallback,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

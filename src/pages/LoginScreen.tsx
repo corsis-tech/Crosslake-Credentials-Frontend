@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -11,23 +11,41 @@ import {
   Container,
   InputAdornment,
   IconButton,
+  Divider,
 } from '@mui/material';
 import { Visibility, VisibilityOff, Lock } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import SSOLoginButton from '../components/SSOLoginButton';
 
 const LoginScreen: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, loginSSO, isSSOEnabled, ssoConfig } = useAuth();
   
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showLocalAuth, setShowLocalAuth] = useState(true);
 
   // Get the redirect path from location state or default to home
   const from = (location.state as any)?.from?.pathname || '/';
+  
+  // Check for SSO error in location state
+  useEffect(() => {
+    const stateError = (location.state as any)?.error;
+    if (stateError) {
+      setError(stateError);
+    }
+  }, [location.state]);
+  
+  // Update local auth visibility based on SSO config
+  useEffect(() => {
+    if (ssoConfig) {
+      setShowLocalAuth(ssoConfig.allow_local_auth || !ssoConfig.configured);
+    }
+  }, [ssoConfig]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +72,20 @@ const LoginScreen: React.FC = () => {
 
   const handleTogglePasswordVisibility = () => {
     setShowPassword(!showPassword);
+  };
+  
+  const handleSSOLogin = async (usePopup = false) => {
+    setError('');
+    try {
+      await loginSSO(usePopup);
+      // Navigation will be handled by the SSO callback or MSAL
+      if (usePopup) {
+        navigate(from, { replace: true });
+      }
+    } catch (err: any) {
+      console.error('SSO login error:', err);
+      setError(err.message || 'SSO login failed. Please try again.');
+    }
   };
 
   return (
@@ -106,7 +138,32 @@ const LoginScreen: React.FC = () => {
               {error}
             </Alert>
           )}
+          
+          {/* SSO Login Option */}
+          {isSSOEnabled && (
+            <>
+              <SSOLoginButton
+                onLogin={handleSSOLogin}
+                fullWidth
+                variant="contained"
+                size="large"
+                disabled={isLoading}
+              />
+              
+              {showLocalAuth && (
+                <>
+                  <Divider sx={{ my: 2, width: '100%' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      OR
+                    </Typography>
+                  </Divider>
+                </>
+              )}
+            </>
+          )}
 
+          {/* Local Authentication Form */}
+          {showLocalAuth && (
           <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
             <TextField
               margin="normal"
@@ -178,6 +235,7 @@ const LoginScreen: React.FC = () => {
               </Typography>
             )}
           </Box>
+          )}
         </Paper>
       </Box>
     </Container>

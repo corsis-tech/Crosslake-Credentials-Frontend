@@ -29,9 +29,6 @@ import {
   WorkOutline,
   Business,
   CheckCircle,
-  Description,
-  Print as PrintIcon,
-  Share as ShareIcon,
   Person as PersonIcon,
   Timeline as TimelineIcon,
   Assignment as ProjectIcon,
@@ -40,7 +37,6 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import type { PractitionerMatch } from '../types/types';
-import PitchResumeModal from './PitchResumeModal';
 import StructuredExplanationV2 from './StructuredExplanationV2';
 import { practitionerApi } from '../utils/api';
 
@@ -231,8 +227,6 @@ export default function PractitionerDetailModal({
   practitioner,
   query,
 }: PractitionerDetailModalProps) {
-  const [pitchModalOpen, setPitchModalOpen] = useState(false);
-  const [isGeneratingPitch, setIsGeneratingPitch] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [detailedData, setDetailedData] = useState<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [loading, setLoading] = useState(false);
@@ -289,49 +283,6 @@ export default function PractitionerDetailModal({
     }
   };
 
-  const handlePrint = () => {
-    // Add print-specific styles
-    const style = document.createElement('style');
-    style.textContent = `
-      @media print {
-        body * { visibility: hidden; }
-        #practitioner-print-content, #practitioner-print-content * { visibility: visible; }
-        #practitioner-print-content { position: absolute; left: 0; top: 0; width: 100%; }
-        .no-print { display: none !important; }
-        .MuiTab-root { display: none !important; }
-        .MuiTabs-root { display: none !important; }
-        [role="tabpanel"] { display: block !important; }
-        .MuiDialogActions-root { display: none !important; }
-      }
-    `;
-    document.head.appendChild(style);
-    
-    // Show all tab panels for print
-    setTabValue(-1);
-    
-    setTimeout(() => {
-      window.print();
-      document.head.removeChild(style);
-      setTabValue(0); // Reset to first tab
-    }, 100);
-  };
-
-  const handleShare = async () => {
-    if (navigator.share && practitioner) {
-      try {
-        await navigator.share({
-          title: `${practitioner.name} - Professional Profile`,
-          text: `Check out ${practitioner.name}'s professional profile: ${practitioner.headline}`,
-          url: window.location.href,
-        });
-      } catch (err) {
-        console.log('Error sharing:', err);
-      }
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(window.location.href);
-    }
-  };
 
   if (!practitioner) return null;
   
@@ -346,14 +297,6 @@ export default function PractitionerDetailModal({
     explanation_status: displayData.explanation_status ?? practitioner.explanation_status ?? 'pending'
   };
 
-  const handleGeneratePitch = () => {
-    setIsGeneratingPitch(true);
-    // Simulate loading delay
-    setTimeout(() => {
-      setIsGeneratingPitch(false);
-      setPitchModalOpen(true);
-    }, 300);
-  };
   
   // Calculate composite score - use actual match_score if available, otherwise parse from explanation
   const { linkedinScore, crosslakeScore } = parseScoresFromExplanation(safeDisplayData.explanation);
@@ -477,45 +420,6 @@ export default function PractitionerDetailModal({
         
         <DialogContent sx={{ pt: 0, pb: 2, px: 0, display: 'flex', flexDirection: 'column' }} id="practitioner-print-content">
           {/* Action Buttons */}
-          <Box sx={{ px: 3, pb: 2, display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }} className="no-print">
-            <Button
-              size="small"
-              startIcon={<InfoIcon />}
-              onClick={() => window.open(`/practitioner/${practitioner.practitioner_id}/all-data`, '_blank')}
-              sx={{ minWidth: 'auto' }}
-              aria-label="View all practitioner data"
-            >
-              {isSmallScreen ? '' : 'View All Data'}
-            </Button>
-            <Button
-              size="small"
-              startIcon={<ShareIcon />}
-              onClick={handleShare}
-              sx={{ minWidth: 'auto' }}
-              aria-label="Share practitioner profile"
-            >
-              {isSmallScreen ? '' : 'Share'}
-            </Button>
-            <Button
-              size="small"
-              startIcon={<PrintIcon />}
-              onClick={handlePrint}
-              sx={{ minWidth: 'auto' }}
-              aria-label="Print practitioner profile"
-            >
-              {isSmallScreen ? '' : 'Print'}
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={isGeneratingPitch ? <CircularProgress size={16} /> : <Description />}
-              onClick={handleGeneratePitch}
-              disabled={isGeneratingPitch}
-              aria-label={isGeneratingPitch ? 'Generating pitch resume' : 'Generate pitch resume'}
-            >
-              {isGeneratingPitch ? 'Generating...' : (isSmallScreen ? 'Pitch' : 'Generate Pitch')}
-            </Button>
-          </Box>
 
           {/* Error Alert */}
           {error && (
@@ -594,7 +498,14 @@ export default function PractitionerDetailModal({
                           </Typography>
                         </Alert>
                       ) : safeDisplayData.explanation && safeDisplayData.explanation.trim() ? (
-                        <StructuredExplanationV2 explanation={safeDisplayData.explanation} />
+                        <StructuredExplanationV2 
+                          explanation={safeDisplayData.explanation}
+                          matchScore={safeDisplayData.match_score}
+                          keywordScore={safeDisplayData.keyword_score}
+                          vectorScore={safeDisplayData.vector_score}
+                          matchedKeywords={safeDisplayData.matched_keywords}
+                          boostFactor={safeDisplayData.boost_factor}
+                        />
                       ) : (
                         <Alert severity="info" sx={{ borderRadius: 2 }}>
                           <Typography variant="body2">
@@ -605,61 +516,6 @@ export default function PractitionerDetailModal({
                     </InfoCard>
                   </Section>
 
-                  {/* Key Metrics */}
-                  <Section>
-                    <SectionTitle>
-                      <PersonIcon color="primary" />
-                      Professional Summary
-                    </SectionTitle>
-                    <Grid container spacing={2}>
-                      {safeDisplayData.seniority_level && (
-                        <Grid item xs={6} sm={3}>
-                          <InfoCard elevation={0}>
-                            <Typography variant="caption" color="text.secondary">
-                              Seniority
-                            </Typography>
-                            <Typography variant="body2" fontWeight={600}>
-                              {safeDisplayData.seniority_level}
-                            </Typography>
-                          </InfoCard>
-                        </Grid>
-                      )}
-                      {safeDisplayData.leadership_level && (
-                        <Grid item xs={6} sm={3}>
-                          <InfoCard elevation={0}>
-                            <Typography variant="caption" color="text.secondary">
-                              Leadership
-                            </Typography>
-                            <Typography variant="body2" fontWeight={600}>
-                              {safeDisplayData.leadership_level}
-                            </Typography>
-                          </InfoCard>
-                        </Grid>
-                      )}
-                      {safeDisplayData.remote_work_suitability && (
-                        <Grid item xs={6} sm={3}>
-                          <InfoCard elevation={0}>
-                            <Typography variant="caption" color="text.secondary">
-                              Remote Work
-                            </Typography>
-                            <Typography variant="body2" fontWeight={600}>
-                              {safeDisplayData.remote_work_suitability}
-                            </Typography>
-                          </InfoCard>
-                        </Grid>
-                      )}
-                      <Grid item xs={6} sm={3}>
-                        <InfoCard elevation={0}>
-                          <Typography variant="caption" color="text.secondary">
-                            Match Score
-                          </Typography>
-                          <Typography variant="body2" fontWeight={600}>
-                            {compositeScore.toFixed(1)}
-                          </Typography>
-                        </InfoCard>
-                      </Grid>
-                    </Grid>
-                  </Section>
 
                   {/* AI Summary */}
                   {safeDisplayData.ai_summary && (
@@ -1193,13 +1049,6 @@ export default function PractitionerDetailModal({
           </Box>
         </DialogContent>
       </StyledDialog>
-
-      <PitchResumeModal
-        open={pitchModalOpen}
-        onClose={() => setPitchModalOpen(false)}
-        practitioner={safeDisplayData}
-        query={query}
-      />
     </>
   );
 }

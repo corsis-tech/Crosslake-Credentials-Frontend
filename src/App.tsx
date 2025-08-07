@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { AuthProvider } from './contexts/AuthContext';
+import MsalProviderWrapper from './providers/MsalProvider';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LoginScreen from './pages/LoginScreen';
@@ -9,6 +10,7 @@ import StreamingResults from './components/StreamingResults';
 import PractitionerList from './components/PractitionerList';
 import PractitionerDetail from './pages/PractitionerDetail';
 import PractitionerAllData from './components/PractitionerAllData';
+import SSOCallback from './components/SSOCallback';
 
 // Create a theme based on Crosslake design system
 const theme = createTheme({
@@ -105,10 +107,13 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
-        <AuthProvider>
+        <MsalProviderWrapper>
+          <AuthProvider>
           <Routes>
-            {/* Public route */}
+            {/* Public routes */}
             <Route path="/login" element={<LoginScreen />} />
+            <Route path="/callback" element={<SSOCallback />} />
+            <Route path="/sso-callback" element={<SSOCallback />} />
             
             {/* Protected routes */}
             <Route
@@ -162,7 +167,8 @@ function App() {
               }
             />
           </Routes>
-        </AuthProvider>
+          </AuthProvider>
+        </MsalProviderWrapper>
       </Router>
     </ThemeProvider>
   );

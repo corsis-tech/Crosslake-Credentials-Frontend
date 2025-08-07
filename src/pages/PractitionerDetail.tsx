@@ -22,7 +22,6 @@ import {
   Business,
   CheckCircle,
   Cancel,
-  Info as InfoIcon,
 } from '@mui/icons-material';
 import { practitionerApi } from '../utils/api';
 
@@ -323,31 +322,6 @@ const PractitionerDetail: React.FC = () => {
             </>
           )}
 
-          {/* Actions */}
-          <Grid item xs={12}>
-            <Divider sx={{ my: 2 }} />
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                variant="contained"
-                startIcon={<InfoIcon />}
-                onClick={() => navigate(`/practitioner/${practitioner.practitioner_id}/all-data`)}
-              >
-                View All Data
-              </Button>
-              {practitioner.linkedin_url && (
-                <Button
-                  variant="outlined"
-                  startIcon={<LinkedIn />}
-                  component={Link}
-                  href={practitioner.linkedin_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View LinkedIn Profile
-                </Button>
-              )}
-            </Box>
-          </Grid>
         </Grid>
       </Paper>
     </Box>

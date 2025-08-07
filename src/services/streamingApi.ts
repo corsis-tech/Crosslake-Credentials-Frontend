@@ -31,6 +31,8 @@ export interface BasicMatch {
   phrase_matches?: string[];  // Compound phrases that were matched
   word_matches?: string[];    // Individual words that were matched
   boost_factor: number;
+  keyword_score?: number;     // Keyword matching score
+  vector_score?: number;      // Vector similarity score
 }
 
 export interface LLMSearchTerms {

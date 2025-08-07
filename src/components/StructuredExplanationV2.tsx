@@ -21,9 +21,15 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
+import ScoreBreakdown from './ScoreBreakdown';
 
 interface StructuredExplanationProps {
   explanation: string;
+  matchScore?: number;
+  keywordScore?: number;
+  vectorScore?: number;
+  matchedKeywords?: string[];
+  boostFactor?: number;
 }
 
 interface ParsedExplanation {
@@ -35,7 +41,14 @@ interface ParsedExplanation {
   crosslakeScore: number;
 }
 
-const StructuredExplanationV2: React.FC<StructuredExplanationProps> = ({ explanation }) => {
+const StructuredExplanationV2: React.FC<StructuredExplanationProps> = ({ 
+  explanation,
+  matchScore,
+  keywordScore,
+  vectorScore,
+  matchedKeywords,
+  boostFactor,
+}) => {
   const theme = useTheme();
   const [linkedInExpanded, setLinkedInExpanded] = React.useState(true);
   const [crosslakeExpanded, setCrosslakeExpanded] = React.useState(true);
@@ -163,18 +176,15 @@ const StructuredExplanationV2: React.FC<StructuredExplanationProps> = ({ explana
       {/* Section Content */}
       <Collapse in={expanded}>
         <Stack spacing={2}>
-          {/* Explicit Matches */}
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <ExplicitIcon sx={{ fontSize: 20, color: theme.palette.success.main }} />
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Direct Matches
-              </Typography>
-              {explicit.length === 0 && (
-                <Chip label="None found" size="small" variant="outlined" />
-              )}
-            </Box>
-            {explicit.length > 0 ? (
+          {/* Explicit Matches - Only show if there are matches */}
+          {explicit.length > 0 && (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <ExplicitIcon sx={{ fontSize: 20, color: theme.palette.success.main }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Direct Matches
+                </Typography>
+              </Box>
               <Stack spacing={1} sx={{ ml: 3.5 }}>
                 {explicit.map((match, idx) => (
                   <Typography key={idx} variant="body2" sx={{ color: theme.palette.text.primary }}>
@@ -182,12 +192,8 @@ const StructuredExplanationV2: React.FC<StructuredExplanationProps> = ({ explana
                   </Typography>
                 ))}
               </Stack>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 3.5 }}>
-                No direct keyword matches found
-              </Typography>
-            )}
-          </Box>
+            </Box>
+          )}
 
           {/* Inferred Matches */}
           <Box>
@@ -240,6 +246,20 @@ const StructuredExplanationV2: React.FC<StructuredExplanationProps> = ({ explana
 
   return (
     <Box>
+      {/* Score Breakdown Section - Show if we have scoring data */}
+      {(matchScore !== undefined || keywordScore !== undefined || vectorScore !== undefined) && (
+        <Box sx={{ mb: 3 }}>
+          <ScoreBreakdown
+            matchScore={matchScore || 0}
+            keywordScore={keywordScore}
+            vectorScore={vectorScore}
+            matchedKeywords={matchedKeywords}
+            boostFactor={boostFactor}
+          />
+        </Box>
+      )}
+
+      <Divider sx={{ mb: 3 }} />
 
       {/* LinkedIn Section */}
       <MatchSection

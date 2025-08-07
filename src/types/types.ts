@@ -86,6 +86,12 @@ export interface PractitionerMatch {
   work_history?: WorkExperience[];
   project_history?: ProjectHistory;
   
+  // Scoring metadata for transparency
+  matched_keywords?: string[];  // Keywords that were matched in the search
+  keyword_score?: number;        // Score from keyword matching (0-1)
+  vector_score?: number;         // Score from semantic similarity (0-1)
+  boost_factor?: number;         // Multiplier applied for keyword matches
+  
   // LinkedIn accomplishments data
   linkedin_about?: string;
   linkedin_accomplishments?: string[];

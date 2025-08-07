@@ -8,6 +8,7 @@ import {
   Stack,
   Divider,
   Button,
+  alpha,
   Collapse,
   LinearProgress,
   Tooltip,
@@ -37,7 +38,7 @@ import type { PractitionerMatch } from '../types/types';
 import PitchResumeModal from './PitchResumeModal';
 import ScoringExplanationTooltip from './ScoringExplanationTooltip';
 import HowScoringWorksModal from './HowScoringWorksModal';
-import MatchEvidenceDisplay from './MatchEvidenceDisplay';
+import StructuredExplanationV2 from './StructuredExplanationV2';
 
 interface EnhancedPractitionerCardProps {
   practitioner: PractitionerMatch;
@@ -288,6 +289,42 @@ export default function EnhancedPractitionerCard({
             />
           )}
         </Stack>
+
+        {/* Matched Keywords Display */}
+        {practitioner.matched_keywords && practitioner.matched_keywords.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', mb: 0.5, display: 'block', fontWeight: 600 }}>
+              🎯 Matched Keywords:
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 0.5 }}>
+              {practitioner.matched_keywords.slice(0, 5).map((keyword, idx) => (
+                <Chip
+                  key={idx}
+                  label={keyword}
+                  size="small"
+                  icon={<CheckCircleIcon />}
+                  sx={{
+                    backgroundColor: alpha('#4caf50', 0.1),
+                    color: '#4caf50',
+                    fontWeight: 600,
+                    '& .MuiChip-icon': {
+                      color: '#4caf50',
+                      fontSize: 14,
+                    },
+                  }}
+                />
+              ))}
+              {practitioner.matched_keywords.length > 5 && (
+                <Chip
+                  label={`+${practitioner.matched_keywords.length - 5} more`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ borderColor: '#4caf50', color: '#4caf50' }}
+                />
+              )}
+            </Stack>
+          </Box>
+        )}
 
         {/* Match Score Breakdown */}
         {breakdown?.enhanced_score && (
@@ -674,7 +711,14 @@ export default function EnhancedPractitionerCard({
               </Typography>
               <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
                 {practitioner.explanation ? (
-                  <MatchEvidenceDisplay explanation={practitioner.explanation} />
+                  <StructuredExplanationV2 
+                    explanation={practitioner.explanation}
+                    matchScore={practitioner.match_score}
+                    keywordScore={practitioner.keyword_score}
+                    vectorScore={practitioner.vector_score}
+                    matchedKeywords={practitioner.matched_keywords}
+                    boostFactor={practitioner.boost_factor}
+                  />
                 ) : (
                   <Box>
                     {/* Fallback display when no AI explanation is available */}
